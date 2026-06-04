@@ -1,0 +1,272 @@
+{
+  "info": {
+    "name": "TaskFlow — Task Management API",
+    "description": "Complete Postman collection for the TaskFlow Task Management System.\n\n**Base URL:** `http://127.0.0.1:8000`\n\n**Auth:** After calling POST /auth/login, the Tests script auto-saves the token to {{token}}. All protected requests use `Bearer {{token}}`.\n\n**Demo Credentials:**\n- Manager → email: `demo@example.com` | password: `Password123`\n- Employee → email: `assignee@example.com` | password: `Password123`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000", "type": "string" },
+    { "key": "token", "value": "", "type": "string", "description": "Auto-filled after Login request" },
+    { "key": "task_id", "value": "", "type": "string", "description": "Auto-filled after Create Task request" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"SecurePass123\",\n  \"confirm_password\": \"SecurePass123\",\n  \"role\": \"employee\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Register a new user. role = 'manager' or 'employee'.\nReturns 400 if email or username already taken."
+          }
+        },
+        {
+          "name": "Login (get token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "    pm.collectionVariables.set('token', json.access_token);",
+                  "    console.log('Token saved to {{token}}');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "demo@example.com", "description": "Pass EMAIL here (OAuth2 form field named 'username')" },
+                { "key": "password", "value": "Password123" }
+              ]
+            },
+            "description": "Login with email + password.\n\nBody must be x-www-form-urlencoded (OAuth2 spec).\nThe 'username' field accepts EMAIL address.\n\nManager: demo@example.com / Password123\nEmployee: assignee@example.com / Password123\n\nThe Tests script auto-saves access_token to {{token}}."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/users", "host": ["{{base_url}}"], "path": ["users"] },
+            "description": "List all users.\n🔒 MANAGER ONLY — 403 for employees.\nUseful to populate the assignee dropdown."
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/users/me", "host": ["{{base_url}}"], "path": ["users", "me"] },
+            "description": "Returns the currently logged-in user's profile.\n🔒 Any authenticated user."
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/users/me", "host": ["{{base_url}}"], "path": ["users", "me"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"New Full Name\",\n  \"username\": \"new_username\",\n  \"email\": \"newemail@example.com\",\n  \"profile_picture\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update profile. All fields optional — send only what changes.\n🔒 Any authenticated user.\n\nErrors:\n- 400 'This email is already registered'\n- 400 'This username is already taken'"
+          }
+        },
+        {
+          "name": "Get My Created Tasks",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/users/me/tasks/created", "host": ["{{base_url}}"], "path": ["users", "me", "tasks", "created"] },
+            "description": "Returns all tasks created by the logged-in user.\n🔒 Any authenticated user."
+          }
+        },
+        {
+          "name": "Get My Assigned Tasks",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/users/me/tasks/assigned", "host": ["{{base_url}}"], "path": ["users", "me", "tasks", "assigned"] },
+            "description": "Returns all tasks assigned to the logged-in user.\n🔒 Any authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 Tasks",
+      "item": [
+        {
+          "name": "List Tasks",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["tasks"],
+              "query": [
+                { "key": "status", "value": "pending", "description": "pending | in_progress | completed | cancelled", "disabled": true },
+                { "key": "priority", "value": "high", "description": "low | medium | high", "disabled": true },
+                { "key": "assignee_id", "value": "USER-UUID", "description": "Manager only", "disabled": true }
+              ]
+            },
+            "description": "List tasks with optional filters.\n🔒 Any authenticated user.\n\nRBAC:\n- Manager → all tasks (filter by assignee_id optional)\n- Employee → only tasks assigned to them\n\nQuery params (all optional):\n- status: pending | in_progress | completed | cancelled\n- priority: low | medium | high\n- assignee_id: UUID (Manager only)"
+          }
+        },
+        {
+          "name": "Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.id) {",
+                  "    pm.collectionVariables.set('task_id', json.id);",
+                  "    console.log('task_id saved:', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks", "host": ["{{base_url}}"], "path": ["tasks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Fix Login Bug\",\n  \"description\": \"Investigate and fix the authentication timeout issue.\",\n  \"priority\": \"high\",\n  \"due_date\": \"2026-12-31T23:59:59Z\",\n  \"assignee_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Create a new task.\n🔒 MANAGER ONLY — 403 for employees.\n\nTests script auto-saves task ID to {{task_id}}.\n\npriority: low | medium | high\ndue_date: ISO 8601 (optional)\nassignee_id: user UUID (optional)"
+          }
+        },
+        {
+          "name": "Get Task by ID",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}"] },
+            "description": "Get a single task by ID.\n🔒 Any authenticated user.\n\nRBAC:\n- Manager → any task\n- Employee → only their assigned task (403 otherwise)"
+          }
+        },
+        {
+          "name": "Update Task (full edit)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Fix Login Bug (Updated)\",\n  \"description\": \"Updated description after investigation.\",\n  \"priority\": \"medium\",\n  \"due_date\": \"2026-11-30T23:59:59Z\",\n  \"assignee_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update all fields of a task.\n🔒 MANAGER ONLY and only the task CREATOR.\n\nErrors:\n- 403 not a manager / not creator\n- 404 task not found"
+          }
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}"] },
+            "description": "Permanently delete a task.\n🔒 MANAGER ONLY and only the task CREATOR.\n\nReturns 204 No Content on success."
+          }
+        },
+        {
+          "name": "Assign Task to User",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}/assign", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}", "assign"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignee_id\": \"EMPLOYEE-USER-UUID-HERE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Assign or reassign a task to a user.\nSet assignee_id to null to unassign.\n🔒 MANAGER ONLY and only the task CREATOR."
+          }
+        },
+        {
+          "name": "Update Task Status",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/tasks/{{task_id}}/status", "host": ["{{base_url}}"], "path": ["tasks", "{{task_id}}", "status"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Update only the status of a task.\n🔒 ASSIGNEE ONLY — the user assigned to this task.\n\nValid status values:\n- pending\n- in_progress\n- completed\n- cancelled\n\nErrors: 403 if not the assignee, 404 if task not found"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Summary",
+      "item": [
+        {
+          "name": "Get Dashboard Summary",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/summary", "host": ["{{base_url}}"], "path": ["summary"] },
+            "description": "Returns aggregate metrics for the manager dashboard.\n🔒 MANAGER ONLY — 403 for employees.\n\nReturns:\n- total_users\n- total_tasks\n- pending_tasks\n- in_progress_tasks\n- completed_tasks\n- tasks_created_by_me\n- tasks_assigned_to_me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏥 Health",
+      "item": [
+        {
+          "name": "Server Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/", "host": ["{{base_url}}"], "path": [""] },
+            "description": "Returns { status: ok } when the server is running."
+          }
+        }
+      ]
+    }
+  ]
+}
